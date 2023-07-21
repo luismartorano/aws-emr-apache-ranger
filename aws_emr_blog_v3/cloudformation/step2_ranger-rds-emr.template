@@ -33,7 +33,7 @@ Parameters:
     Type: String
     MinLength: '9'
     MaxLength: '18'
-    Default: 10.0.0.0/16
+    Default: 172.54.0.0/16
     ConstraintDescription: must be a valid CIDR range of the form x.x.x.x/x
   AdditionalSourcePrefixToSG:
     Description: (Optional) Sources that are allowd to access the Ranger ELB and EMR master node. Should be a source prefix
@@ -99,7 +99,8 @@ Parameters:
   MasterInstanceType:
     Description: Instance type for the cluster nodes
     Type: String
-    Default: r5.2xlarge
+    Default: m4.large
+
     AllowedValues:
       - m4.large
       - m4.xlarge
@@ -109,7 +110,8 @@ Parameters:
   CoreInstanceType:
     Description: Instance type for the cluster nodes
     Type: String
-    Default: r5.2xlarge
+    Default: m4.large
+
     AllowedValues:
       - m4.large
       - m4.xlarge
@@ -117,7 +119,7 @@ Parameters:
       - m4.4xlarge
       - r5.2xlarge
   RangerInstanceType:
-    Default: r5.xlarge
+    Default: m5.xlarge
     Description: Instance Type of the core node
     Type: String
     AllowedValues:
@@ -128,7 +130,7 @@ Parameters:
       - r5.2xlarge
       - r5.4xlarge
   EMRClusterName:
-    Default: EMR-EMRSecurityWithRangerGA
+    Default: Trino
     Description: Cluster name for the EMR
     Type: String
   EMRLogDir:
@@ -216,7 +218,7 @@ Parameters:
   AppsEMR:
     Description: 'Comma separated list of applications to install on the cluster e.g., '
     Type: String
-    Default: Hadoop, Spark, Hive, Livy, Hue
+    Default: Hadoop, Spark, Hive, Livy, Hue, Trino
     AllowedValues:
       - "Hadoop, Spark, Hive, Livy, Hue"
       - "Hadoop, Spark, Hive, Livy, Hue, Trino"
@@ -228,7 +230,7 @@ Parameters:
     AllowedValues: [ true ]
   emrReleaseLabel:
     Type: String
-    Default: emr-5.32.0
+    Default: emr-6.8.0
     AllowedValues:
       - emr-5.32.0
       - emr-5.36.0
@@ -239,7 +241,7 @@ Parameters:
   S3Bucket:
     Description: S3Bucket for the code [Important!! for non US-East-1 regions the code needs to be in a regional bucket. Either pass the regional bucket name with the EMR bootstrap scripts and Lambda function code, or set 'CreateRegionalS3BucketAndCopyScripts' parameter to 'true']
     Type: String
-    Default: aws-bigdata-blog
+    Default: aws-bigdata-blog-vitta
   S3Key:
     Description: S3Key of the code [Important!! for non US-East-1 regions the code needs to be in a regional bucket. Either pass the regional bucket name with the EMR bootstrap scripts and Lambda function code, or set 'CreateRegionalS3BucketAndCopyScripts' parameter to 'true']
     Type: String
@@ -247,8 +249,8 @@ Parameters:
   S3ArtifactBucket:
     Description: S3Bucket where artifacts are stored
     Type: String
-    Default: aws-bigdata-blog
-    AllowedValues: [ "aws-bigdata-blog" ]
+    Default: aws-bigdata-blog-vitta
+    AllowedValues: [ "aws-bigdata-blog-vitta" ]
   S3ArtifactKey:
     Description: S3Key of the Lambda code
     Type: String
@@ -279,9 +281,9 @@ Parameters:
   RangerAdminPassword:
     Description: Password of the Ranger Admin server
     NoEcho: 'true'
-    Default: admin
+    Default: xGhfh6X6ZGhqtzPwVdPam8LbZH2PxT
     Type: String
-    AllowedValues: [ "admin" ]
+    AllowedValues: [ "xGhfh6X6ZGhqtzPwVdPam8LbZH2PxT" ]
   CreateNonEMRResources:
     Description: Only Install EMR cluster, Other resources which might have been created with previous stacks will be ignored. Eg- CloudWatch Log Groups
       Allows you to re-run the same stack multiple times.
@@ -310,7 +312,7 @@ Parameters:
     AllowedValues: [ true, false ]
   CreateTLSCerts:
     Description: This flag controls creation of certs used for Ranger setup. This includes Ranger admin certs, plugin certs/keys used for mutual TLS.  Additionally, if a new regional bucket is created using 'CreateRegionalS3BucketAndCopyScripts', certificates required by Elastic MapReduce (EMR) for In-Transit Encryption will also get created.
-    Default: false
+    Default: true
     Type: String
     AllowedValues: [ true, false ]
   InstallRangerHDFSPlugin:
@@ -318,6 +320,7 @@ Parameters:
     Default: false
     Type: String
     AllowedValues: [ true, false ]
+
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -353,13 +356,13 @@ Mappings:
     MachineConfiguration:
       BastionInstanceType: t2.small
     NetworkConfiguration:
-      VPCCIDR: 10.0.0.0/16
-      PublicSubnet1CIDR: 10.0.1.0/24
-      PrivateSubnet1CIDR: 10.0.2.0/24
-      PublicSubnet2CIDR: 10.0.3.0/24
-      PrivateSubnet2CIDR: 10.0.4.0/24
-      PublicSubnet3CIDR: 10.0.5.0/24
-      PrivateSubnet3CIDR: 10.0.6.0/24
+      VPCCIDR: 172.54.0.0/16
+      PublicSubnet1CIDR: 172.54.6.0/24
+      PrivateSubnet1CIDR: 172.54.16.0/24
+      PublicSubnet2CIDR: 172.54.4.0/24
+      PrivateSubnet2CIDR: 172.54.14.0/24
+      PublicSubnet3CIDR: 172.54.2.0/24
+      PrivateSubnet3CIDR: 172.54.12.0/24
 Resources:
   RDSDatabase:
     Type: AWS::CloudFormation::Stack
@@ -376,10 +379,7 @@ Resources:
           - DefaultConfiguration
           - NetworkConfiguration
           - PrivateSubnet1CIDR
-        VPCCIDR: !FindInMap
-          - DefaultConfiguration
-          - NetworkConfiguration
-          - VPCCIDR
+        VPCCIDR: !Ref 'VPCCIDR'
         MySQLDBPassword: !Ref DBRootPassword
         MySQLDBUserName: !Ref DBUserName
   CopyS3Artifacts:
@@ -478,7 +478,7 @@ Resources:
         CIDRAccessToPrivateSubnetResources: !Ref CIDRAccessToPrivateSubnetResources
         AdditionalSourcePrefixToSG: !Ref AdditionalSourcePrefixToSG
         EnableGlueSupport: !Ref EnableGlueSupport
-      TimeoutInMinutes: '60'
+      TimeoutInMinutes: '120'
 Outputs:
   RDSInstanceAddress:
     Description: IP Address of the RDS instance
